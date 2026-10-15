@@ -1,6 +1,5 @@
 {
   "id": "larksub",
-  "name": "LarkSub",
   "description": "Multi-account Lark CLI manager and per-session account switcher for Paseo Web",
   "requirements": {
     "paseo": ">=0.9.1"
