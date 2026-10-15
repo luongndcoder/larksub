@@ -1,0 +1,54 @@
+{
+  "name": "@luongndcoder/larksub",
+  "version": "0.1.0",
+  "description": "LarkSub: Multi-account Lark CLI manager and per-session account switcher for Paseo Web.",
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "lark",
+    "lark-cli",
+    "feishu",
+    "multi-account",
+    "oauth"
+  ],
+  "homepage": "https://github.com/luongndcoder/larksub#readme",
+  "bugs": {
+    "url": "https://github.com/luongndcoder/larksub/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luongndcoder/larksub.git"
+  },
+  "license": "MIT",
+  "author": "luongndcoder",
+  "files": [
+    "paseo-plugin.json",
+    "index.client.tsx",
+    "index.server.ts",
+    "client/",
+    "server/",
+    "shared/",
+    "!**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
+    "audit:mobile": "! grep -rnE \"\\\\b(document|window|localStorage|navigator)\\\\.|<(div|span|p|a|button|input|img|ul|ol|li|section|header|footer|main|nav|form|label|h[1-6]|table|tr|td|svg|path|br|hr)[ >/]|className=|onClick=\" client/"
+  },
+  "devDependencies": {
+    "@getpaseo/client": "0.9.1",
+    "@getpaseo/plugin": "0.9.1",
+    "@getpaseo/protocol": "0.9.1",
+    "@tanstack/react-query": "^5.90.11",
+    "@types/node": "^22.20.4",
+    "@types/react": "~19.2.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "typescript": "^5.9.3",
+    "zod": "^4.4.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
