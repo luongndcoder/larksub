@@ -62,6 +62,8 @@ export const LarkPendingLoginViewSchema = z.object({
   error: z.string().optional(),
   authorizedAccountId: z.string().optional(),
   authorizedUserName: z.string().optional(),
+  appId: z.string().optional(),
+  brand: z.enum(["lark", "feishu"]).optional(),
 });
 export type LarkPendingLoginView = z.infer<typeof LarkPendingLoginViewSchema>;
 

@@ -12,7 +12,8 @@ Plugin [Paseo](https://paseo.sh) giúp quản lý **nhiều tài khoản Lark (`
   - Tự động đồng bộ các tài khoản đã đăng nhập sẵn từ `~/.lark-cli/config.json` và Keychain hệ thống.
   - Tạo môi trường cấu hình độc lập cho từng tài khoản tại `~/.paseo/larksub/homes/<accountId>/` dùng chung `appId` và Keychain (`lark-cli-keystore`).
 - **Đăng nhập thêm tài khoản qua QR Code / OAuth ngay trên Paseo Web**:
-  - Thành viên bấm **`+ Add Account`** (hoặc từ Composer Pill → `Add Lark account…`), chọn phạm vi quyền (`all`, `docs`, `drive`, ...) và quét mã QR bằng ứng dụng Lark trên điện thoại.
+  - Mỗi thành viên dùng **app Lark của chính mình**: tạo Custom App tại `open.larksuite.com` (lấy `App ID` + `App Secret`), bấm **`+ Add Account`**, dán 2 giá trị này vào modal rồi mới `Generate QR` và quét bằng Lark cá nhân.
+  - Dùng app của người khác sẽ bị Lark chặn: `You don't have the access to "..."`. Trường `Authorizing into app` trong modal luôn hiển thị app đang authorize để dễ kiểm tra.
 - **Chọn tài khoản Lark theo từng phiên (Per-Session Composer Pill)**:
   - Nút pill **`Lark: <Tên tài khoản>`** hiển thị ngay dưới ô nhập chat của mỗi phiên.
   - Khi đổi tài khoản trên Composer Pill, lệnh `lark-cli` tiếp theo trong phiên đó sẽ **chuyển sang tài khoản mới ngay lập tức** mà không cần khởi động lại Agent.

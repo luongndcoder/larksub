@@ -115,11 +115,11 @@ export function LarkAccountsSurface(props: PluginSurfaceProps & { store: LarkSub
         <Card theme={theme}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <View style={{ gap: 2 }}>
-              <Text style={text.strong}>Shared Lark App Configuration</Text>
+              <Text style={text.strong}>Host Default Lark App</Text>
               <Text style={text.small}>
                 {state?.appConfig
-                  ? `App ID: ${state.appConfig.appId} (${state.appConfig.brand.toUpperCase()})`
-                  : "No ~/.lark-cli/config.json detected"}
+                  ? `App ID: ${state.appConfig.appId} (${state.appConfig.brand.toUpperCase()}) — fallback only, each account keeps its own app`
+                  : "No ~/.lark-cli/config.json detected — each member must use their own App ID + Secret"}
               </Text>
             </View>
             <Badge
@@ -283,6 +283,7 @@ function AccountCard({
           <Text style={text.muted}>
             {account.userName} · {account.userOpenId}
           </Text>
+          <Text style={text.small}>App: {account.appId} ({account.brand})</Text>
           {typeof account.scopeCount === "number" ? (
             <Text style={text.small}>{account.scopeCount} OAuth scopes granted</Text>
           ) : null}

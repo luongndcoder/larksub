@@ -367,19 +367,66 @@ export async function probeAccountStatus(
   }
 }
 
+export async function configureStagingAppWithSecret(options: {
+  binary: string;
+  stagingHome: string;
+  appId: string;
+  appSecret: string;
+  brand: "lark" | "feishu";
+}): Promise<void> {
+  const { binary, stagingHome, appId, appSecret, brand } = options;
+  const secret = appSecret.trim();
+  if (!secret) throw new Error("App Secret cannot be empty when using a custom App ID.");
+  const { spawn } = await import("node:child_process");
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      binary,
+      ["config", "init", "--app-id", appId, "--brand", brand, "--app-secret-stdin", "--force-init"],
+      { env: { ...process.env, HOME: stagingHome }, stdio: ["pipe", "pipe", "pipe"] },
+    );
+    let stderr = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderr.trim() || `lark-cli config init failed (code ${code ?? "unknown"}).`));
+    });
+    try {
+      child.stdin?.write(secret);
+      child.stdin?.end();
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+}
+
 export async function startDeviceLogin(options: {
   binary: string;
   paths: LarkSubPaths;
   appConfig: LarkAppConfig;
   loginId: string;
   domain?: string;
+  appSecret?: string;
   onAuthorized: (result: { userOpenId: string; userName: string; scopeCount?: number }) => Promise<void>;
   onFailed: (reason: string) => Promise<void>;
 }): Promise<StartedDeviceLogin> {
-  const { binary, paths, appConfig, loginId, domain = "all", onAuthorized, onFailed } = options;
+  const { binary, paths, appConfig, loginId, domain = "all", appSecret, onAuthorized, onFailed } = options;
   const stagingHome = join(paths.stagingDir, loginId);
   await rm(stagingHome, { recursive: true, force: true });
-  await ensureIsolatedLarkHome(paths, stagingHome, appConfig, null);
+  if (appSecret?.trim()) {
+    await ensureIsolatedLarkHome(paths, stagingHome, appConfig, null);
+    await configureStagingAppWithSecret({
+      binary,
+      stagingHome,
+      appId: appConfig.appId,
+      appSecret: appSecret.trim(),
+      brand: appConfig.brand,
+    });
+  } else {
+    await ensureIsolatedLarkHome(paths, stagingHome, appConfig, null);
+  }
 
   const { stdout, stderr } = await execFileAsync(
     binary,

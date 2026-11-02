@@ -6,6 +6,7 @@ import type {
   LarkAccountRecord,
   LarkAccountStatus,
   LarkAccountView,
+  LarkAppConfig,
   LarkPendingLoginView,
   LarkStateFile,
   LarkStateView,
@@ -236,7 +237,13 @@ export class LarkSubService {
     });
   }
 
-  async startLogin(input?: { label?: string; domain?: string }): Promise<LarkStateView> {
+  async startLogin(input?: {
+    label?: string;
+    domain?: string;
+    appId?: string;
+    appSecret?: string;
+    brand?: "lark" | "feishu";
+  }): Promise<LarkStateView> {
     return this.mutex.run(async () => {
       const binary = this.larkBinary ?? (await findLarkCliBinary(this.paths));
       if (!binary) {
@@ -247,11 +254,34 @@ export class LarkSubService {
       if (!this.state.appConfig) {
         await this.syncFromHostLocked();
       }
-      const appConfig = this.state.appConfig;
-      if (!appConfig) {
+      const hostAppConfig = this.state.appConfig;
+      if (!hostAppConfig && !input?.appId?.trim()) {
         throw new Error(
-          "No Lark App configuration found in ~/.lark-cli/config.json. Run `lark-cli config init` on the host once.",
+          "No Lark App configuration found in ~/.lark-cli/config.json. Run `lark-cli config init` on the host once, or paste your own App ID + App Secret.",
         );
+      }
+
+      const customAppId = input?.appId?.trim() ?? "";
+      let appConfig: LarkAppConfig;
+      let appSecret: string | undefined;
+      if (customAppId) {
+        if (!/^cli_a[a-z0-9]+$/i.test(customAppId)) {
+          throw new Error(`Invalid App ID "${customAppId}". Expected format cli_a... (from open.larksuite.com).`);
+        }
+        const secret = input?.appSecret?.trim() ?? "";
+        if (!secret) {
+          throw new Error("App Secret is required when using your own App ID. Copy it from the Lark Developer Console.");
+        }
+        const brand = input?.brand === "feishu" ? "feishu" : input?.brand === "lark" ? "lark" : hostAppConfig?.brand === "feishu" ? "feishu" : "lark";
+        appConfig = { appId: customAppId, brand, lang: hostAppConfig?.lang ?? "en_us" };
+        appSecret = secret;
+      } else {
+        if (!hostAppConfig) {
+          throw new Error(
+            "No Lark App configuration found in ~/.lark-cli/config.json. Run `lark-cli config init` on the host once.",
+          );
+        }
+        appConfig = hostAppConfig;
       }
 
       if (this.activeLogin) {
@@ -268,9 +298,14 @@ export class LarkSubService {
         appConfig,
         loginId,
         domain: input?.domain?.trim() || "all",
+        appSecret,
         onAuthorized: async ({ userOpenId, userName, scopeCount }) => {
           await this.mutex.run(async () => {
-            let account = this.state.accounts.find((a) => a.userOpenId === userOpenId);
+            // Match by (userOpenId + appId) so the same Lark user authorizing
+            // via two different personal apps gets two separate accounts.
+            let account = this.state.accounts.find(
+              (a) => a.userOpenId === userOpenId && a.appId === appConfig.appId,
+            );
             const now = new Date().toISOString();
             if (!account) {
               const id = this.allocateAccountId(requestedLabel || userName, userOpenId);
@@ -337,6 +372,8 @@ export class LarkSubService {
           qrDataUrl: started.qrDataUrl ?? null,
           expiresAt,
           status: "waiting",
+          appId: appConfig.appId,
+          brand: appConfig.brand,
         },
         waitProcess: started.waitProcess,
         stagingHome: started.stagingHome,
