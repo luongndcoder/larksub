@@ -378,28 +378,46 @@ export async function configureStagingAppWithSecret(options: {
   const secret = appSecret.trim();
   if (!secret) throw new Error("App Secret cannot be empty when using a custom App ID.");
   const { spawn } = await import("node:child_process");
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(
-      binary,
-      ["config", "init", "--app-id", appId, "--brand", brand, "--app-secret-stdin", "--force-init"],
-      { env: { ...process.env, HOME: stagingHome }, stdio: ["pipe", "pipe", "pipe"] },
+  const maxAttempts = 4;
+  let lastError = "";
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const stderr = await new Promise<string>((resolve) => {
+      const child = spawn(
+        binary,
+        ["config", "init", "--app-id", appId, "--brand", brand, "--app-secret-stdin", "--force-init"],
+        { env: { ...process.env, HOME: stagingHome }, stdio: ["pipe", "pipe", "pipe"] },
+      );
+      let errText = "";
+      child.stderr?.on("data", (chunk: Buffer) => {
+        errText += chunk.toString("utf8");
+      });
+      child.on("error", (error: Error) => resolve(error.message));
+      child.on("close", (code) => {
+        resolve(code === 0 ? "" : errText.trim() || `lark-cli config init failed (code ${code ?? "unknown"}).`);
+      });
+      try {
+        child.stdin?.write(secret);
+        child.stdin?.end();
+      } catch (error) {
+        resolve(error instanceof Error ? error.message : String(error));
+      }
+    });
+    if (!stderr) return;
+    lastError = stderr;
+    // Lark verifies the app via the TAT endpoint during `config init` and
+    // rate-limits it (HTTP 429, "retryable": true). The config file is still
+    // saved, so a retry after backoff usually succeeds.
+    const retryable = /rate.?limit|429|retryable/i.test(stderr);
+    if (!retryable || attempt === maxAttempts) break;
+    const backoffMs = (1_500 * 2 ** (attempt - 1)) + Math.floor(Math.random() * 500);
+    await new Promise((resolve) => setTimeout(resolve, backoffMs));
+  }
+  if (/rate.?limit|429/i.test(lastError)) {
+    throw new Error(
+      `Lark rate-limited the App verification (HTTP 429). Config was saved — wait 1-2 minutes, then press Generate QR again. Detail: ${lastError}`,
     );
-    let stderr = "";
-    child.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(stderr.trim() || `lark-cli config init failed (code ${code ?? "unknown"}).`));
-    });
-    try {
-      child.stdin?.write(secret);
-      child.stdin?.end();
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error(String(error)));
-    }
-  });
+  }
+  throw new Error(lastError || "lark-cli config init failed.");
 }
 
 export async function startDeviceLogin(options: {
