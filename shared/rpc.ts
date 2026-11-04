@@ -19,6 +19,7 @@ export const startLogin = defineRpc({
     appId: z.string().optional(),
     appSecret: z.string().optional(),
     brand: z.enum(["lark", "feishu"]).optional(),
+    exclude: z.array(z.string()).optional(),
   }),
   output: LarkStateViewSchema,
 });

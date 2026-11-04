@@ -243,6 +243,7 @@ export class LarkSubService {
     appId?: string;
     appSecret?: string;
     brand?: "lark" | "feishu";
+    exclude?: string[];
   }): Promise<LarkStateView> {
     return this.mutex.run(async () => {
       const binary = this.larkBinary ?? (await findLarkCliBinary(this.paths));
@@ -299,6 +300,7 @@ export class LarkSubService {
         loginId,
         domain: input?.domain?.trim() || "all",
         appSecret,
+        exclude: input?.exclude,
         onAuthorized: async ({ userOpenId, userName, scopeCount }) => {
           await this.mutex.run(async () => {
             // Match by (userOpenId + appId) so the same Lark user authorizing

@@ -420,6 +420,15 @@ export async function configureStagingAppWithSecret(options: {
   throw new Error(lastError || "lark-cli config init failed.");
 }
 
+/**
+ * Scopes excluded by default from `auth login` requests.
+ * `vc:meeting.realtime:read` is restricted by some tenant admins
+ * ("Restricted - Do not retry"): requesting it makes the device flow
+ * report `missing_scope` and fail even though everything else was granted.
+ * Callers can override via the `exclude` option.
+ */
+export const DEFAULT_LOGIN_EXCLUDES = ["vc:meeting.realtime:read"];
+
 export async function startDeviceLogin(options: {
   binary: string;
   paths: LarkSubPaths;
@@ -427,10 +436,11 @@ export async function startDeviceLogin(options: {
   loginId: string;
   domain?: string;
   appSecret?: string;
+  exclude?: string[];
   onAuthorized: (result: { userOpenId: string; userName: string; scopeCount?: number }) => Promise<void>;
   onFailed: (reason: string) => Promise<void>;
 }): Promise<StartedDeviceLogin> {
-  const { binary, paths, appConfig, loginId, domain = "all", appSecret, onAuthorized, onFailed } = options;
+  const { binary, paths, appConfig, loginId, domain = "all", appSecret, exclude, onAuthorized, onFailed } = options;
   const stagingHome = join(paths.stagingDir, loginId);
   await rm(stagingHome, { recursive: true, force: true });
   if (appSecret?.trim()) {
@@ -446,14 +456,15 @@ export async function startDeviceLogin(options: {
     await ensureIsolatedLarkHome(paths, stagingHome, appConfig, null);
   }
 
-  const { stdout, stderr } = await execFileAsync(
-    binary,
-    ["auth", "login", "--domain", domain, "--no-wait", "--json"],
-    {
-      env: { ...process.env, HOME: stagingHome },
-      timeout: 15_000,
-    },
-  );
+  const effectiveExcludes = (exclude ?? DEFAULT_LOGIN_EXCLUDES).map((s) => s.trim()).filter(Boolean);
+  const loginArgs = ["auth", "login", "--domain", domain, "--no-wait", "--json"];
+  if (effectiveExcludes.length > 0) {
+    loginArgs.push("--exclude", effectiveExcludes.join(","));
+  }
+  const { stdout, stderr } = await execFileAsync(binary, loginArgs, {
+    env: { ...process.env, HOME: stagingHome },
+    timeout: 15_000,
+  });
   const rawOutput = stdout.trim() || stderr.trim();
   const challenge = JSON.parse(rawOutput) as {
     device_code?: string;
